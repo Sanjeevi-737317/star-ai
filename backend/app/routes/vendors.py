@@ -10,19 +10,18 @@ from app.models.vendor import Vendor
 from app.schemas.vendor import VendorCreate, VendorEvaluateRequest, VendorEvaluateResponse, VendorUpdate, VendorResponse
 from app.services.audit_service import log_audit
 from app.services.starai import STARAI
-from app.utils import get_current_active_user
 
 router = APIRouter()
 
 
 @router.get("/", response_model=List[VendorResponse])
-async def list_vendors(db: AsyncSession = Depends(get_db), current_user=Depends(get_current_active_user)):
+async def list_vendors(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Vendor))
     return result.scalars().all()
 
 
 @router.post("/ai/evaluate", response_model=VendorEvaluateResponse, name="evaluate_vendor")
-async def evaluate_vendor(payload: VendorEvaluateRequest, current_user=Depends(get_current_active_user)):
+async def evaluate_vendor(payload: VendorEvaluateRequest):
     starai = STARAI()
     prompt = (
         "You are STAR AI, a procurement intelligence engine.\n"
@@ -62,17 +61,17 @@ async def evaluate_vendor(payload: VendorEvaluateRequest, current_user=Depends(g
 
 
 @router.post("/", response_model=VendorResponse, status_code=status.HTTP_201_CREATED)
-async def create_vendor(payload: VendorCreate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_active_user)):
+async def create_vendor(payload: VendorCreate, db: AsyncSession = Depends(get_db)):
     vendor = Vendor(**payload.dict())
     db.add(vendor)
     await db.commit()
     await db.refresh(vendor)
-    await log_audit(db, "create", "vendor", vendor.id, current_user.id)
+    await log_audit(db, "create", "vendor", vendor.id, 1)
     return vendor
 
 
 @router.get("/{vendor_id}", response_model=VendorResponse)
-async def get_vendor(vendor_id: int, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_active_user)):
+async def get_vendor(vendor_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Vendor).where(Vendor.id == vendor_id))
     vendor = result.scalar_one_or_none()
     if not vendor:
@@ -81,7 +80,7 @@ async def get_vendor(vendor_id: int, db: AsyncSession = Depends(get_db), current
 
 
 @router.put("/{vendor_id}", response_model=VendorResponse)
-async def update_vendor(vendor_id: int, payload: VendorUpdate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_active_user)):
+async def update_vendor(vendor_id: int, payload: VendorUpdate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Vendor).where(Vendor.id == vendor_id))
     vendor = result.scalar_one_or_none()
     if not vendor:
@@ -90,16 +89,16 @@ async def update_vendor(vendor_id: int, payload: VendorUpdate, db: AsyncSession 
         setattr(vendor, key, value)
     await db.commit()
     await db.refresh(vendor)
-    await log_audit(db, "update", "vendor", vendor.id, current_user.id)
+    await log_audit(db, "update", "vendor", vendor.id, 1)
     return vendor
 
 
 @router.delete("/{vendor_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_vendor(vendor_id: int, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_active_user)):
+async def delete_vendor(vendor_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Vendor).where(Vendor.id == vendor_id))
     vendor = result.scalar_one_or_none()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
     await db.delete(vendor)
     await db.commit()
-    await log_audit(db, "delete", "vendor", vendor_id, current_user.id)
+    await log_audit(db, "delete", "vendor", vendor_id, 1)

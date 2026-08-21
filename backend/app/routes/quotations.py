@@ -8,17 +8,15 @@ from sqlalchemy.future import select
 from app.database import get_db
 from app.models.quotation import Quotation
 from app.schemas.quotation import QuotationCreate, QuotationResponse
-from app.services.audit_service import log_audit
 from app.services.quotation_parser import extract_text
 from app.services.starai import STARAI
-from app.utils import get_current_active_user
 
 router = APIRouter()
 starai = STARAI()
 
 
 @router.get("/", response_model=List[QuotationResponse])
-async def list_quotations(db: AsyncSession = Depends(get_db), current_user=Depends(get_current_active_user)):
+async def list_quotations(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Quotation))
     return result.scalars().all()
 
@@ -29,7 +27,6 @@ async def upload_quotation(
     rfq_id: int = Form(...),
     vendor_id: int = Form(...),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_active_user),
 ):
     upload_dir = "uploads"
     os.makedirs(upload_dir, exist_ok=True)
@@ -67,17 +64,16 @@ async def upload_quotation(
         quotation.status = "completed"
         await db.commit()
         await db.refresh(quotation)
-        await log_audit(db, "upload", "quotation", quotation.id, current_user.id)
+
     except Exception:
         quotation.status = "failed"
         await db.commit()
-        await log_audit(db, "upload_failed", "quotation", quotation.id, current_user.id)
 
     return quotation
 
 
 @router.get("/{quotation_id}", response_model=QuotationResponse)
-async def get_quotation(quotation_id: int, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_active_user)):
+async def get_quotation(quotation_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Quotation).where(Quotation.id == quotation_id))
     quotation = result.scalar_one_or_none()
     if not quotation:

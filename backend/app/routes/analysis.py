@@ -17,14 +17,13 @@ from app.services.scoring import calculate_scores
 from app.services.starai import STARAI
 from app.services.risk_engine import analyze_risk
 from app.services.tco_engine import calculate_tco
-from app.utils import get_current_active_user
 
 router = APIRouter()
 starai = STARAI()
 
 
 @router.post("/analyze/{rfq_id}", response_model=AnalysisResponse)
-async def analyze_rfq(rfq_id: int, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_active_user)):
+async def analyze_rfq(rfq_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(RFQ).where(RFQ.id == rfq_id))
     rfq = result.scalar_one_or_none()
     if not rfq:
@@ -129,12 +128,12 @@ async def analyze_rfq(rfq_id: int, db: AsyncSession = Depends(get_db), current_u
             "created_at": vs.created_at.isoformat() if vs.created_at else None,
         })
 
-    await log_audit(db, "analyze", "rfq", rfq_id, current_user.id)
+    await log_audit(db, "analyze", "rfq", rfq_id, 1)
     return {"rfq_id": rfq_id, "scores": score_payload, "recommendation": recommendation}
 
 
 @router.get("/results/{rfq_id}", response_model=AnalysisResponse)
-async def get_analysis_results(rfq_id: int, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_active_user)):
+async def get_analysis_results(rfq_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(VendorScore).where(VendorScore.rfq_id == rfq_id).order_by(VendorScore.recommendation_rank))
     scores = result.scalars().all()
     if not scores:

@@ -7,7 +7,6 @@ from sqlalchemy.future import select
 from app.database import get_db
 from app.models.audit_log import AuditLog
 from app.schemas.audit_log import AuditLogResponse
-from app.utils import get_current_active_user
 
 router = APIRouter()
 
@@ -16,7 +15,6 @@ router = APIRouter()
 async def get_audit_logs(
     entity_type: str | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_active_user),
 ):
     query = select(AuditLog)
     if entity_type:
